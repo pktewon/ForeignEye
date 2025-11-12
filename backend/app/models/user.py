@@ -2,16 +2,14 @@
 User 모델
 
 사용자 계정 정보를 저장하고 인증 기능을 제공합니다.
-Flask-Login의 UserMixin을 상속받아 로그인 기능을 구현합니다.
 """
 
 from datetime import datetime
-from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     """
     사용자 모델
     
@@ -44,11 +42,6 @@ class User(UserMixin, db.Model):
         lazy=True,
         cascade='all, delete-orphan'
     )
-    
-    # Flask-Login 필수 메서드
-    def get_id(self):
-        """Flask-Login이 사용자 ID를 가져오는 메서드"""
-        return str(self.user_id)
     
     # 비밀번호 관리 메서드
     def set_password(self, password):

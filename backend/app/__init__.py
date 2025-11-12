@@ -42,6 +42,9 @@ def create_app(config_name=None):
     # 블루프린트 등록
     register_blueprints(app)
     
+    # 헬스체크 엔드포인트 등록 (Cloud Run 용)
+    register_health_check(app)
+    
     # 에러 핸들러 등록
     register_error_handlers(app)
     
@@ -97,6 +100,47 @@ def register_blueprints(app):
     app.register_blueprint(search.bp, url_prefix=f'{api_prefix}/search')
     
     app.logger.info('블루프린트 등록 완료')
+
+
+def register_health_check(app):
+    """헬스체크 엔드포인트 등록 (Cloud Run 용)"""
+    from flask import jsonify
+    from datetime import datetime
+    
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        """
+        헬스체크 엔드포인트
+        
+        Cloud Run이 서비스 상태를 확인하는 데 사용
+        GET /health
+        """
+        return jsonify({
+            'status': 'healthy',
+            'service': 'foreigneye-backend',
+            'timestamp': datetime.utcnow().isoformat() + 'Z'
+        }), 200
+    
+    @app.route('/', methods=['GET'])
+    def root():
+        """
+        루트 엔드포인트
+        
+        API 정보 제공
+        GET /
+        """
+        return jsonify({
+            'service': 'ForeignEye Backend API',
+            'version': 'v1',
+            'status': 'running',
+            'endpoints': {
+                'health': '/health',
+                'api': '/api/v1',
+                'docs': 'See README.md for API documentation'
+            }
+        }), 200
+    
+    app.logger.info('헬스체크 엔드포인트 등록 완료')
 
 
 def register_error_handlers(app):

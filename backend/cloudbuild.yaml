@@ -1,0 +1,65 @@
+# ============================================
+# Google Cloud Build 자동 배포 설정
+# ============================================
+# Cloud Build를 사용한 자동 빌드 및 배포
+# 트리거 설정: GitHub 푸시 시 자동 실행
+
+steps:
+  # Step 1: Docker 이미지 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/foreigneye-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/foreigneye-backend:latest'
+      - '.'
+    dir: 'backend'
+    
+  # Step 2: Docker 이미지를 Container Registry에 푸시
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/foreigneye-backend:$COMMIT_SHA'
+    
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/foreigneye-backend:latest'
+    
+  # Step 3: Cloud Run에 배포
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'foreigneye-backend'
+      - '--image=gcr.io/$PROJECT_ID/foreigneye-backend:$COMMIT_SHA'
+      - '--region=asia-northeast3'  # 서울 리전
+      - '--platform=managed'
+      - '--allow-unauthenticated'  # 공개 API (필요시 인증 설정)
+      - '--memory=1Gi'  # 메모리 1GB
+      - '--cpu=1'  # 1 vCPU
+      - '--min-instances=0'  # 최소 인스턴스 (비용 절감)
+      - '--max-instances=10'  # 최대 인스턴스 (트래픽 급증 대비)
+      - '--timeout=300'  # 타임아웃 5분
+      - '--set-env-vars=FLASK_ENV=production,FLASK_DEBUG=False'
+      - '--add-cloudsql-instances=$_CLOUD_SQL_INSTANCE'  # Cloud SQL 연결
+      - '--set-secrets=SECRET_KEY=foreigneye-secret-key:latest,JWT_SECRET_KEY=foreigneye-jwt-key:latest,DB_PASSWORD=foreigneye-db-password:latest,GNEWS_API_KEY=gnews-api-key:latest,OPENROUTER_API_KEY=openrouter-api-key:latest'
+
+# 빌드 타임아웃
+timeout: '1200s'  # 20분
+
+# 빌드 이미지 저장소
+images:
+  - 'gcr.io/$PROJECT_ID/foreigneye-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/foreigneye-backend:latest'
+
+# 치환 변수 (Cloud Build 트리거에서 설정)
+substitutions:
+  _CLOUD_SQL_INSTANCE: 'YOUR_PROJECT_ID:asia-northeast3:foreigneye-db'
+
+# 옵션
+options:
+  machineType: 'E2_HIGHCPU_8'  # 빌드 머신 타입
+  logging: CLOUD_LOGGING_ONLY
